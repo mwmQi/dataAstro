@@ -10,10 +10,12 @@ def main():
     parser.add_argument("--lat", type=float, required=True, help="Latitude (decimal degrees)")
     parser.add_argument("--lon", type=float, required=True, help="Longitude (decimal degrees)")
     parser.add_argument("--tz", type=float, default=5.5, help="UTC timezone offset (default: 5.5 for IST)")
+    parser.add_argument("--place", default="Birth Place", help="Birth place string")
+    parser.add_argument("--astrosage-cloud", action="store_true", help="Scrape live AstroSage Cloud (Upagrahas, Mandi, Gulika, etc.)")
     parser.add_argument("--out", help="Path to write full JSON chart")
 
     args = parser.parse_args()
-    data = get_person_details(args.name, args.dob, args.tob, args.lat, args.lon, args.tz)
+    data = get_person_details(args.name, args.dob, args.tob, args.lat, args.lon, args.tz, include_astrosage_cloud=args.astrosage_cloud, place=args.place)
 
     print("=== dataAstro AI Digest ===")
     print(data["ai_digest"])
