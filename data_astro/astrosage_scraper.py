@@ -1,4 +1,4 @@
-"""data_astro.astrosage_scraper: Scrapes 100% of AstroSage Cloud verified data (including Upagrahas)."""
+"""data_astro.astrosage_scraper: Scrapes 100% of AstroSage Cloud verified data (Upagrahas, Tables & Full Predictive Text Reports)."""
 
 import urllib.request, urllib.parse, http.cookiejar, ssl, re, json
 from html.parser import HTMLParser
@@ -33,8 +33,14 @@ class TableParser(HTMLParser):
     def handle_data(self, data):
         if self.in_cell: self.curr_cell.append(data)
 
+def extract_clean_text(html: str) -> list:
+    """Extract clean content paragraphs from an HTML page."""
+    clean = re.sub(r"<(script|style)[^>]*>.*?</\1>", "", html, flags=re.DOTALL | re.IGNORECASE)
+    lines = [l.strip() for l in re.sub(r"<[^>]+>", "\n", clean).splitlines() if l.strip()]
+    return [l for l in lines if len(l) > 80 and not any(x in l.lower() for x in ["download now", "astrosage", "cookie policy", "terms of use"])]
+
 def fetch_astrosage_cloud_data(name: str, dob: str, tob: str, lat: float, lon: float, tz: float = 5.5, place: str = "Birth Place") -> dict:
-    """Creates a session on ascloud.astrosage.com and fetches full tables (Upagrahas, Planet Positions, Ashtakvarga, etc.)."""
+    """Creates a session on ascloud.astrosage.com and fetches full tables + predictive reports."""
     y, m, d = dob.split("-")
     hh, mm, ss = (tob.split(":") + ["00", "00"])[:3]
 
@@ -70,50 +76,64 @@ def fetch_astrosage_cloud_data(name: str, dob: str, tob: str, lat: float, lon: f
     )
     opener.open(req, timeout=12)
 
-    def get_tables(endpoint):
+    def fetch_endpoint(endpoint):
         try:
             url = f"https://ascloud.astrosage.com/cloud/{endpoint}"
             r = opener.open(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=10)
+            html = r.read().decode("utf-8", errors="ignore")
             p = TableParser()
-            p.feed(r.read().decode("utf-8", errors="ignore"))
-            return p.tables
-        except Exception as e:
-            return []
+            p.feed(html)
+            text = extract_clean_text(html)
+            return {"tables": p.tables, "text": text}
+        except Exception:
+            return {"tables": [], "text": []}
 
-    # 2. Extract Upagrahas
-    upagraha_tables = get_tables("upgrahchart.asp")
+    # 2. Extract Upagrahas (Mandi, Gulika, Dhuma, Parivesha, etc.)
+    upgrah_res = fetch_endpoint("upgrahchart.asp")
     upagrahas = []
-    if upagraha_tables and len(upagraha_tables[0]) > 1:
-        headers = upagraha_tables[0][0]
-        for row in upagraha_tables[0][1:]:
+    if upgrah_res["tables"] and len(upgrah_res["tables"][0]) > 1:
+        for row in upgrah_res["tables"][0][1:]:
             if len(row) >= 5:
                 upagrahas.append({
                     "planet": row[0], "rashi": row[1], "longitude": row[2],
                     "nakshatra": row[3], "pada": row[4]
                 })
 
-    # 3. Extract Planet Positions
-    planet_tables = get_tables("planetposition.asp")
+    # 3. Extract Detailed Planet & KP Tables
+    planet_res = fetch_endpoint("planetposition.asp")
     planets = []
-    if planet_tables and len(planet_tables[0]) > 1:
-        for row in planet_tables[0][1:]:
+    if planet_res["tables"] and len(planet_res["tables"][0]) > 1:
+        for row in planet_res["tables"][0][1:]:
             if len(row) >= 7:
                 planets.append({
                     "planet": row[0], "combust": row[1] == "C", "retrograde": row[2] == "R",
                     "rashi": row[3], "longitude": row[4], "nakshatra": row[5], "pada": row[6]
                 })
 
-    # 4. Extract KP Cusps
-    kp_tables = get_tables("kpcusp.asp")
+    kp_res = fetch_endpoint("kpcusp.asp")
+    shadbala_res = fetch_endpoint("shadandbhav.asp")
 
-    # 5. Extract Shadbala
-    shadbala_tables = get_tables("shadandbhav.asp")
+    # 4. Extract Text Predictions (Ascendant, Lal Kitab, Dasha Phala, Sade Sati, Love)
+    asc_pred = fetch_endpoint("ascendant-prediction.asp")["text"]
+    lal_pred = fetch_endpoint("lalkitab-prediction.asp")["text"]
+    sade_pred = fetch_endpoint("sadesatireport.asp")["text"]
+    dasha_pred = fetch_endpoint("dasha_phala.asp")["text"]
+    general_pred = fetch_endpoint("kundali-prediction.asp")["text"]
+    love_pred = fetch_endpoint("love-horoscope.asp")["text"]
 
     return {
         "source": "ascloud.astrosage.com",
         "native": {"name": name, "dob": dob, "tob": tob, "place": place, "lat": lat, "lon": lon},
         "upagrahas": upagrahas,
         "planets_detailed": planets,
-        "kp_cusps": kp_tables,
-        "shadbala_summary": shadbala_tables,
+        "kp_cusps": kp_res["tables"],
+        "shadbala_summary": shadbala_res["tables"],
+        "predictions": {
+            "ascendant_nature_health": asc_pred,
+            "lal_kitab_predictions_and_upay": lal_pred,
+            "sade_sati_lifecycle": sade_pred,
+            "vimshottari_dasha_phala": dasha_pred,
+            "general_life_trends": general_pred,
+            "love_and_marriage": love_pred
+        }
     }

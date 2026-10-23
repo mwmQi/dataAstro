@@ -12,6 +12,7 @@ def get_person_details(name: str, dob: str, tob: str, lat: float, lon: float, tz
         cloud_data = fetch_astrosage_cloud_data(name, dob, tob, lat, lon, tz, place)
         data["astrosage_cloud"] = cloud_data
         data["upagrahas"] = cloud_data.get("upagrahas", [])
+        data["astrosage_predictions"] = cloud_data.get("predictions", {})
     return data
 
 __all__ = ["get_person_details", "Birth", "kundli", "make_lossless_ai_payload", "fetch_astrosage_cloud_data"]
