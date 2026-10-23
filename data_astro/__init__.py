@@ -4,6 +4,7 @@ from .core import Birth, kundli, detect_yogas, ashtakavarga, build_dasha, shadba
 from .ai import make_lossless_ai_payload
 from .astrosage_scraper import fetch_astrosage_cloud_data
 from .ui import generate_north_kundli_svg, generate_mobile_card_html
+from .ui_reva import render_reva_screen_html, render_reva_app_chart_svg
 
 def get_person_details(name: str, dob: str, tob: str, lat: float, lon: float, tz: float = 5.5, include_astrosage_cloud: bool = False, place: str = "Birth Place") -> dict:
     """Calculate full Vedic profile and 16-varga astrological dossier."""
@@ -18,5 +19,6 @@ def get_person_details(name: str, dob: str, tob: str, lat: float, lon: float, tz
 
 __all__ = [
     "get_person_details", "Birth", "kundli", "make_lossless_ai_payload",
-    "fetch_astrosage_cloud_data", "generate_north_kundli_svg", "generate_mobile_card_html"
+    "fetch_astrosage_cloud_data", "generate_north_kundli_svg", "generate_mobile_card_html",
+    "render_reva_screen_html", "render_reva_app_chart_svg"
 ]
