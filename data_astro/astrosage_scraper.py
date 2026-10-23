@@ -105,8 +105,9 @@ def fetch_astrosage_cloud_data(name: str, dob: str, tob: str, lat: float, lon: f
     if planet_res["tables"] and len(planet_res["tables"][0]) > 1:
         for row in planet_res["tables"][0][1:]:
             if len(row) >= 7:
+                raw_name = row[0].split(" is in")[0].strip()
                 planets.append({
-                    "planet": row[0], "combust": row[1] == "C", "retrograde": row[2] == "R",
+                    "planet": raw_name, "combust": row[1] == "C", "retrograde": row[2] == "R",
                     "rashi": row[3], "longitude": row[4], "nakshatra": row[5], "pada": row[6]
                 })
 
