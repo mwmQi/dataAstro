@@ -113,12 +113,12 @@ from data_astro import get_person_details
 
 # Compute complete profile from raw birth coordinates
 profile = get_person_details(
-    name="Prithvi Raj",
-    dob="2007-03-13",       # YYYY-MM-DD
-    tob="18:05:00",          # HH:MM:SS (24-hr format)
-    lat=25.51095,            # North decimal latitude
-    lon=86.47246,            # East decimal longitude
-    tz=5.5                   # UTC offset (IST = +5.5)
+    name="John Doe",
+    dob="1990-01-01",
+    tob="12:00:00",
+    lat=28.6139,
+    lon=77.2090,
+    tz=5.5
 )
 
 # 1. Synthesized AI Digest (for LLM prompt context)
@@ -142,12 +142,12 @@ print(f"Active Dasha: {current_dasha['md']['lord']} MD / {current_dasha['ad']['l
 ```bash
 # Direct JSON extraction to stdout or file
 python3 -m data_astro \
-  --name "Prithvi Raj" \
-  --dob "2007-03-13" \
-  --tob "18:05:00" \
-  --lat 25.51095 \
-  --lon 86.47246 \
-  --out prithvi_chart.json
+  --name "John Doe" \
+  --dob "1990-01-01" \
+  --tob "12:00:00" \
+  --lat 28.6139 \
+  --lon 77.2090 \
+  --out chart.json
 ```
 
 ### 3. Production REST API (FastAPI + Uvicorn)
@@ -164,11 +164,11 @@ Query the API via `curl`:
 curl -s -X POST http://127.0.0.1:8091/kundli \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Prithvi Raj",
-    "dob": "2007-03-13",
-    "tob": "18:05:00",
-    "lat": 25.51095,
-    "lon": 86.47246,
+    "name": "John Doe",
+    "dob": "1990-01-01",
+    "tob": "12:00:00",
+    "lat": 28.6139,
+    "lon": 77.2090,
     "tz": 5.5
   }' | jq '{ai_digest: .ai_digest, active_dasha: .dasha.current}'
 ```

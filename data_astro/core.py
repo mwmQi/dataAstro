@@ -4,7 +4,7 @@ Vedic Kundli API — birth data in, full AI-ready chart JSON out.
 
     uvicorn kundli_api:app --host 0.0.0.0 --port 8091
 
-POST /kundli  {"name":..., "dob":"2007-03-13", "tob":"18:05:00",
+POST /kundli  {"name":"John Doe", "dob":"1990-01-01", "tob":"12:00:00",
                "lat":25.51, "lon":86.47, "tz":5.5}
 """
 import math
