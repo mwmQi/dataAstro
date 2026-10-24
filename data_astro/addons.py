@@ -161,3 +161,65 @@ def calculate_ishta_kashta_phala(chart: dict) -> dict:
         }
 
     return results
+
+# ------------------------------------------------------------- 4. 12-Month Transit Calendar (Gochar Timeline)
+def calculate_12_month_transits(chart: dict, months: int = 12) -> list:
+    """Calculates monthly transit positions and house activations for Jupiter, Saturn, Rahu, and Ketu."""
+    import swisseph as swe
+    from datetime import datetime
+    from dateutil.relativedelta import relativedelta
+
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    FLAGS = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+
+    lagna_sign = chart.get("lagna", {}).get("sign", "Aries")
+    lagna_idx = SIGNS.index(lagna_sign) if lagna_sign in SIGNS else 0
+    moon_sign = chart.get("planets", [{}])[1].get("sign", "Aries")
+    moon_idx = SIGNS.index(moon_sign) if moon_sign in SIGNS else 0
+
+    now = datetime.utcnow()
+    calendar = []
+
+    TRACKED = [("Jupiter", swe.JUPITER), ("Saturn", swe.SATURN), ("Rahu", swe.MEAN_NODE)]
+
+    for m in range(months):
+        target_date = now + relativedelta(months=m)
+        jd = swe.julday(target_date.year, target_date.month, target_date.day, 12.0)
+
+        entry = {
+            "date": target_date.strftime("%Y-%m-%d"),
+            "month_offset": m,
+            "transits": {}
+        }
+
+        for name, code in TRACKED:
+            pos = swe.calc_ut(jd, code, FLAGS)[0]
+            deg = pos[0]
+            s_idx = int(deg / 30) % 12
+            s_name = SIGNS[s_idx]
+            from_lagna = ((s_idx - lagna_idx) % 12) + 1
+            from_moon = ((s_idx - moon_idx) % 12) + 1
+
+            entry["transits"][name] = {
+                "sign": s_name,
+                "degree_dms": f"{int(deg%30)}°{int((deg%1)*60)}'",
+                "house_from_lagna": from_lagna,
+                "house_from_moon": from_moon,
+                "retrograde": pos[3] < 0
+            }
+
+        # Ketu: exactly 180 deg opposite Rahu
+        rahu_deg = swe.calc_ut(jd, swe.MEAN_NODE, FLAGS)[0][0]
+        ketu_deg = (rahu_deg + 180.0) % 360.0
+        k_s_idx = int(ketu_deg / 30) % 12
+        entry["transits"]["Ketu"] = {
+            "sign": SIGNS[k_s_idx],
+            "degree_dms": f"{int(ketu_deg%30)}°{int((ketu_deg%1)*60)}'",
+            "house_from_lagna": ((k_s_idx - lagna_idx) % 12) + 1,
+            "house_from_moon": ((k_s_idx - moon_idx) % 12) + 1,
+            "retrograde": True
+        }
+
+        calendar.append(entry)
+
+    return calendar
