@@ -617,6 +617,35 @@ def detect_yogas(p: dict, lagna_lon: float) -> list:
             y.append({"yoga": "Vargottama", "planets": [name],
                       "basis": f"{name} in same sign in D1 and D9"})
 
+    # Amala Yoga: Only natural benefics in 10th from Lagna or Moon
+    tenth_from_lagna = [n for n in p if hp[n] == 10 and n in ("Jupiter", "Venus", "Mercury")]
+    if tenth_from_lagna:
+        y.append({"yoga": "Amala Yoga", "planets": tenth_from_lagna,
+                  "basis": f"Natural benefic {', '.join(tenth_from_lagna)} in 10th house from Lagna"})
+
+    # Parivartana Yoga (Mutual exchange of house lords)
+    house_lords = {h: SIGN_LORD[(L + h - 1) % 12] for h in range(1, 13)}
+    checked_exchanges = set()
+    for h1 in range(1, 13):
+        l1 = house_lords[h1]
+        if l1 not in p: continue
+        h2 = hp[l1]
+        if h1 != h2:
+            l2 = house_lords[h2]
+            if l2 in p and hp[l2] == h1:
+                pair = tuple(sorted([h1, h2]))
+                if pair not in checked_exchanges:
+                    checked_exchanges.add(pair)
+                    y.append({"yoga": "Parivartana Yoga", "planets": [l1, l2],
+                              "basis": f"Mutual exchange between House {h1} lord {l1} and House {h2} lord {l2}"})
+
+    # Chandra-Shukra (Moon & Venus sambandha / 5-9 or kendra)
+    mv = (sign_of(p["Venus"]["lon"]) - sign_of(p["Moon"]["lon"])) % 12 + 1
+    if mv in (5, 9):
+        y.append({"yoga": "Navapanchama Yoga (Moon-Venus)", "planets": ["Moon", "Venus"],
+                  "basis": f"Moon and Venus in harmonious 5-9 relationship"})
+
+
     # Combustion
     for name in ("Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Moon"):
         diff = abs(((p[name]["lon"] - p["Sun"]["lon"] + 180) % 360) - 180)
@@ -846,6 +875,7 @@ def kundli(b: Birth) -> dict:
             name: {
                 "sign": SIGNS[sign_of(swe.calc_ut(now_jd, code, FLAGS)[0][0])],
                 "degree_dms": dms(deg_in_sign(swe.calc_ut(now_jd, code, FLAGS)[0][0])),
+                "absolute_longitude": round(swe.calc_ut(now_jd, code, FLAGS)[0][0], 4),
             } for name, code in PLANETS
         },
         "aspects": aspects(p, {x["planet"]: x["house"] for x in planets_out}),
