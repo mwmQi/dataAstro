@@ -223,3 +223,144 @@ def calculate_12_month_transits(chart: dict, months: int = 12) -> list:
         calendar.append(entry)
 
     return calendar
+
+# ------------------------------------------------------------- 5. Yogini Dasha (36-Year Cycle)
+YOGINI_LORDS = [
+    ("Mangala", "Moon", 1), ("Pingala", "Sun", 2), ("Dhanya", "Jupiter", 3),
+    ("Bhramari", "Mars", 4), ("Bhadrika", "Mercury", 5), ("Ulka", "Saturn", 6),
+    ("Siddha", "Venus", 7), ("Sankata", "Rahu", 8)
+]
+
+def calculate_yogini_dasha(chart: dict) -> dict:
+    """Calculates active 36-year Yogini Dasha from Moon's nakshatra (Ashwini=1 formula)."""
+    from datetime import datetime, timedelta
+    moon_lon = chart.get("planets", [{}])[1].get("absolute_longitude", 0.0)
+    nak_num = int(moon_lon / (360.0 / 27.0))  # 0..26
+    deg_in_nak = moon_lon % (360.0 / 27.0)
+    fraction_remaining = 1.0 - (deg_in_nak / (360.0 / 27.0))
+
+    # Classical Yogini start index: (Nakshatra + 3) % 8
+    start_idx = (nak_num + 3) % 8
+    first_yogini, first_planet, total_yrs = YOGINI_LORDS[start_idx]
+    balance_days = total_yrs * 365.25 * fraction_remaining
+
+    # Current date progression
+    b_date = datetime.strptime(f"{chart['birth']['dob']} {chart['birth']['tob'][:5]}", "%Y-%m-%d %H:%M")
+    now = datetime.utcnow()
+    diff_days = (now - b_date).total_seconds() / 86400.0
+
+    curr_idx = start_idx
+    curr_span = balance_days
+    t = 0.0
+
+    while t + curr_span < diff_days:
+        t += curr_span
+        curr_idx = (curr_idx + 1) % 8
+        curr_span = YOGINI_LORDS[curr_idx][2] * 365.25
+
+    active = YOGINI_LORDS[curr_idx]
+    end_date = b_date + timedelta(days=t + curr_span)
+
+    return {
+        "system": "Yogini (36-year cycle)",
+        "active_yogini": active[0],
+        "ruler_graha": active[1],
+        "cycle_years": active[2],
+        "active_until": end_date.strftime("%Y-%m-%d")
+    }
+
+# ------------------------------------------------------------- 6. Sensitive Sahams (Arabic Parts)
+def calculate_sahams(chart: dict) -> dict:
+    """Calculates exact longitudes for Punya (Fortune), Vidya (Education), and Vivaha (Marriage) Sahams."""
+    planets = {p["planet"]: p["absolute_longitude"] for p in chart.get("planets", [])}
+    asc = chart.get("lagna", {}).get("absolute_longitude", 0.0)
+    sun = planets.get("Sun", 0.0)
+    moon = planets.get("Moon", 0.0)
+    venus = planets.get("Venus", 0.0)
+    jupiter = planets.get("Jupiter", 0.0)
+
+    # Is day birth? (Sun above horizon / H7..H12)
+    sun_h = chart.get("planets", [{}])[0].get("house", 1)
+    day_birth = sun_h in (7, 8, 9, 10, 11, 12)
+
+    # 1. Punya Saham (Fortune): Asc + Moon - Sun (Day) | Asc + Sun - Moon (Night)
+    punya_lon = (asc + (moon - sun if day_birth else sun - moon)) % 360.0
+    # 2. Vidya Saham (Education): Asc + Sun - Jupiter
+    vidya_lon = (asc + sun - jupiter) % 360.0
+    # 3. Vivaha Saham (Marriage): Asc + Venus - Saturn
+    saturn = planets.get("Saturn", 0.0)
+    vivaha_lon = (asc + venus - saturn) % 360.0
+    # 4. Karma Saham (Action/Career): Asc + Mars - Sun
+    mars = planets.get("Mars", 0.0)
+    karma_lon = (asc + mars - sun) % 360.0
+
+    def format_saham(lon):
+        s_idx = int(lon / 30.0) % 12
+        return {"sign": SIGNS[s_idx], "degree_dms": f"{int(lon%30)}°{int((lon%1)*60)}'", "absolute_longitude": round(lon, 4)}
+
+    return {
+        "punya_saham_fortune": format_saham(punya_lon),
+        "vidya_saham_education": format_saham(vidya_lon),
+        "vivaha_saham_marriage": format_saham(vivaha_lon),
+        "karma_saham_career": format_saham(karma_lon)
+    }
+
+# ------------------------------------------------------------- 7. Planetary Avastas (12 States)
+def calculate_planetary_avastas(chart: dict) -> dict:
+    """Computes Deepta, Swastha, Mudita, Shanta, Shakta, Peedita, Deena, Vikala, Khala avastas."""
+    avastas = {}
+    EXALT = {"Sun": 4, "Moon": 1, "Mars": 9, "Mercury": 5, "Jupiter": 3, "Venus": 11, "Saturn": 6}
+    DEBIL = {"Sun": 6, "Moon": 7, "Mars": 3, "Mercury": 11, "Jupiter": 9, "Venus": 5, "Saturn": 0}
+
+    for p in chart.get("planets", []):
+        name = p.get("planet")
+        lon = p.get("absolute_longitude", 0.0)
+        s_idx = int(lon / 30.0) % 12
+        dignity = p.get("dignity", "")
+        retro = p.get("retrograde", False)
+
+        if "Exalted" in dignity or s_idx == EXALT.get(name):
+            state = "Deepta (Radiant / Highly Auspicious)"
+        elif "Own" in dignity:
+            state = "Swastha (Content / Peaceful)"
+        elif "Friendly" in dignity:
+            state = "Mudita (Delighted / Favorable)"
+        elif "Neutral" in dignity:
+            state = "Shanta (Calm / Balanced)"
+        elif "Debilitated" in dignity or s_idx == DEBIL.get(name):
+            state = "Deena (Depressed / Struggling)"
+        elif "Enemy" in dignity:
+            state = "Khala (Agitated / Malefic Drag)"
+        elif retro:
+            state = "Shakta (Powerful / Motional)"
+        else:
+            state = "Pravritha (Neutral)"
+
+        avastas[name] = {"avasta": state, "retrograde": retro, "house": p.get("house")}
+
+    return avastas
+
+# ------------------------------------------------------------- 8. Daily Choghadiya Timers
+def calculate_daily_choghadiya(chart: dict) -> dict:
+    """Computes daytime and nighttime Choghadiya segments for the birth date and current day."""
+    ORDER_DAY = ["Udveg", "Char", "Labh", "Amrit", "Kaal", "Shubh", "Rog"]
+    STATUS_MAP = {
+        "Amrit": "Best (Auspicious)", "Shubh": "Good (Auspicious)", "Labh": "Gainful (Auspicious)",
+        "Char": "Neutral (Travel)", "Rog": "Inauspicious (Disease)", "Kaal": "Inauspicious (Loss)",
+        "Udveg": "Inauspicious (Anxiety)"
+    }
+    weekday = chart.get("panchang", {}).get("weekday", "Sunday")
+    DAY_OFFSETS = {"Sunday": 0, "Monday": 3, "Tuesday": 6, "Wednesday": 2, "Thursday": 5, "Friday": 1, "Saturday": 4}
+    start_idx = DAY_OFFSETS.get(weekday, 0)
+
+    day_choghadiyas = []
+    for i in range(8):
+        c_name = ORDER_DAY[(start_idx + i) % 7]
+        day_choghadiyas.append({"period": f"Period {i+1}", "choghadiya": c_name, "quality": STATUS_MAP[c_name]})
+
+    return {
+        "weekday": weekday,
+        "daytime_choghadiyas": day_choghadiyas,
+        "auspicious_periods": [c["period"] for c in day_choghadiyas if "Auspicious" in c["quality"]]
+    }
+
