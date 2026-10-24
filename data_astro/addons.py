@@ -1,6 +1,5 @@
-"""data_astro.addons: Lightweight, zero-bloat mathematical add-ons extracted from classical Jyotish (Arudha Padas & Ashta-Kuta Matchmaking)."""
+"""data_astro.addons: Lightweight, zero-bloat mathematical add-ons extracted from classical Jyotish (Arudha Padas, Ashta-Kuta Matchmaking & VedAstro Ishta/Kashta Phala)."""
 
-# ------------------------------------------------------------- 1. Arudha Padas (A1..A12)
 SIGN_LORDS = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"]
 SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"]
 
@@ -124,3 +123,41 @@ def calculate_36_guna_match(boy_chart: dict, girl_chart: dict) -> dict:
         "nadi_dosha": nadi_dosha,
         "koota_breakdown": scores
     }
+
+# ------------------------------------------------------------- 3. VedAstro Ishta / Kashta Phala & Avastas
+def calculate_ishta_kashta_phala(chart: dict) -> dict:
+    """Computes Dr. B.V. Raman / VedAstro Ishta Phala (benefic potential) and Kashta Phala (malefic drag) for all 7 classical planets."""
+    results = {}
+    EXALTATION_DEGREES = {
+        "Sun": 10.0, "Moon": 33.0, "Mars": 298.0, "Mercury": 165.0,
+        "Jupiter": 95.0, "Venus": 357.0, "Saturn": 200.0
+    }
+
+    for p in chart.get("planets", []):
+        name = p.get("planet")
+        if name not in EXALTATION_DEGREES:
+            continue
+        lon = p.get("absolute_longitude", 0.0)
+        exalt = EXALTATION_DEGREES[name]
+
+        # Uchcha Bala distance (0..180 degrees)
+        diff = abs(lon - exalt)
+        if diff > 180.0:
+            diff = 360.0 - diff
+        uchcha_bala = (180.0 - diff) / 3.0  # Max 60 virupas
+
+        # Cheshta Bala or default baseline 30
+        cheshta_bala = 60.0 if p.get("retrograde") else 30.0
+
+        # Classical Raman formula: sqrt(Uchcha * Cheshta)
+        import math
+        ishta = round(math.sqrt(max(0.1, uchcha_bala * cheshta_bala)), 2)
+        kashta = round(math.sqrt(max(0.1, (60.0 - uchcha_bala) * (60.0 - cheshta_bala))), 2)
+
+        results[name] = {
+            "ishta_phala": ishta,
+            "kashta_phala": kashta,
+            "net_benefic_ratio": round(ishta / (ishta + kashta), 2)
+        }
+
+    return results
