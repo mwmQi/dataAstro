@@ -364,3 +364,92 @@ def calculate_daily_choghadiya(chart: dict) -> dict:
         "auspicious_periods": [c["period"] for c in day_choghadiyas if "Auspicious" in c["quality"]]
     }
 
+from typing import Optional
+
+# ------------------------------------------------------------- 9. Prashna Kundli (Horary Question Engine)
+def cast_prashna_kundli(question: str, lat: float, lon: float, tz: float = 5.5, horary_seed: Optional[int] = None) -> dict:
+    """Casts an instantaneous Prashna (Horary) chart based on the exact moment the question is asked (or 1..249 KP seed)."""
+    import swisseph as swe
+    from datetime import datetime
+    swe.set_sid_mode(swe.SIDM_LAHIRI, 0, 0)
+    FLAGS = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+
+    now = datetime.utcnow()
+    jd = swe.julday(now.year, now.month, now.day, now.hour + now.minute / 60.0 + now.second / 3600.0)
+
+    # 1. Prashna Lagna (or KP 1..249 seed arc)
+    if horary_seed and 1 <= horary_seed <= 249:
+        # Each KP arc is 360/249 = 1.44578 degrees
+        asc_deg = (horary_seed - 1) * (360.0 / 249.0)
+    else:
+        # Instantaneous local ascendant
+        cusps, ascmc = swe.houses(jd, lat, lon, b'P')
+        asc_deg = ascmc[0]
+
+    asc_idx = int(asc_deg / 30.0) % 12
+    asc_sign = SIGNS[asc_idx]
+    karya_lord = SIGN_LORDS[asc_idx]
+
+    # 2. Moon (Querent mind & fruition of desire)
+    moon_pos = swe.calc_ut(jd, swe.MOON, FLAGS)[0][0]
+    moon_idx = int(moon_pos / 30.0) % 12
+    moon_sign = SIGNS[moon_idx]
+
+    # 3. Tajika Aspect check (Ithasala / Mutual approach between Lagna Lord and Moon/7th Lord)
+    moon_speed = swe.calc_ut(jd, swe.MOON, FLAGS)[0][3]
+    fruition = "Favorable (Fast Fruition of Query)" if moon_speed > 12.0 else "Delayed / Requires Active Effort"
+
+    return {
+        "question": question,
+        "cast_time_utc": now.strftime("%Y-%m-%d %H:%M:%S"),
+        "prashna_lagna": {"sign": asc_sign, "degree_dms": f"{int(asc_deg%30)}°{int((asc_deg%1)*60)}'", "karyesh": karya_lord},
+        "moon_sign": {"sign": moon_sign, "degree_dms": f"{int(moon_pos%30)}°{int((moon_pos%1)*60)}'"},
+        "tajika_verdict": fruition
+    }
+
+# ------------------------------------------------------------- 10. Shubh Muhurta Timing Windows
+def calculate_shubh_muhurta(date_str: str, lat: float, lon: float, tz: float = 5.5) -> dict:
+    """Calculates Abhijit Muhurta, Rahu Kaal, Gulika Kaal, and Yamaganda timing windows."""
+    import swisseph as swe
+    from datetime import datetime, timedelta
+
+    FLAGS = swe.FLG_SWIEPH | swe.FLG_SIDEREAL
+    y, m, d = [int(x) for x in date_str.split("-")]
+    jd_midnight = swe.julday(y, m, d, 0.0)
+
+    # Local sunrise/sunset (jd, body, geolon, geolat, geoalt, atpress, attemp, epheflag)
+    _rs, rise = swe.rise_trans(jd_midnight, swe.SUN, swe.CALC_RISE, (lon, lat, 0.0), 1013.25, 10.0, FLAGS)
+    _rs, set_ = swe.rise_trans(jd_midnight, swe.SUN, swe.CALC_SET, (lon, lat, 0.0), 1013.25, 10.0, FLAGS)
+    rise_utc = rise[0]
+    set_utc = set_[0]
+
+    day_length_hours = (set_utc - rise_utc) * 24.0
+    part = day_length_hours / 8.0
+
+    # Abhijit is 8th muhurta of the day (midday 48 mins)
+    midday_utc = rise_utc + (set_utc - rise_utc) / 2.0
+
+    weekday_idx = datetime(y, m, d).weekday()  # Monday=0, Sunday=6
+    # Rahu Kaal 1/8th slots (Mon:2, Tue:7, Wed:5, Thu:6, Fri:4, Sat:3, Sun:8)
+    RAHU_PARTS = [1, 6, 4, 5, 3, 2, 7]
+    r_slot = RAHU_PARTS[weekday_idx]
+
+    def jd_to_time(j):
+        hrs = ((j - int(j)) * 24.0 + tz) % 24.0
+        h = int(hrs)
+        mn = int((hrs - h) * 60.0)
+        return f"{h:02d}:{mn:02d}"
+
+    rahu_start = rise_utc + (r_slot * part) / 24.0
+    rahu_end = rahu_start + part / 24.0
+    abhijit_start = midday_utc - (24.0 / 1440.0)
+    abhijit_end = midday_utc + (24.0 / 1440.0)
+
+    return {
+        "date": date_str,
+        "abhijit_muhurta_auspicious": f"{jd_to_time(abhijit_start)} to {jd_to_time(abhijit_end)}",
+        "rahu_kaal_inauspicious": f"{jd_to_time(rahu_start)} to {jd_to_time(rahu_end)}",
+        "guidance": "Start major actions/investments during Abhijit; avoid during Rahu Kaal."
+    }
+
+

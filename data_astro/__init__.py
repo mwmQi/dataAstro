@@ -7,7 +7,8 @@ from .ui import generate_north_kundli_svg, generate_mobile_card_html
 from .addons import (
     calculate_arudha_padas, calculate_36_guna_match, calculate_ishta_kashta_phala,
     calculate_12_month_transits, calculate_yogini_dasha, calculate_sahams,
-    calculate_planetary_avastas, calculate_daily_choghadiya
+    calculate_planetary_avastas, calculate_daily_choghadiya, cast_prashna_kundli,
+    calculate_shubh_muhurta
 )
 
 def get_person_details(name: str, dob: str, tob: str, lat: float, lon: float, tz: float = 5.5, include_astrosage_cloud: bool = False, place: str = "Birth Place") -> dict:
@@ -33,5 +34,6 @@ __all__ = [
     "fetch_astrosage_cloud_data", "generate_north_kundli_svg", "generate_mobile_card_html",
     "calculate_arudha_padas", "calculate_36_guna_match", "calculate_ishta_kashta_phala",
     "calculate_12_month_transits", "calculate_yogini_dasha", "calculate_sahams",
-    "calculate_planetary_avastas", "calculate_daily_choghadiya"
+    "calculate_planetary_avastas", "calculate_daily_choghadiya", "cast_prashna_kundli",
+    "calculate_shubh_muhurta"
 ]
